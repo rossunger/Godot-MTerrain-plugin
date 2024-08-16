@@ -4,7 +4,7 @@ extends Button
 
 @onready var brush_container = find_child("brush_container")
 @onready var brush_settings_container = find_child("brush_settings")
-
+@onready var brush_window_button = find_child("brush_window_button")
 var height_brush_id = 0
 
 var last_height_brush_id
@@ -38,6 +38,7 @@ var no_image = preload("res://addons/m_terrain/icons/no_images.png") #For color 
 
 
 @onready var add_color_brush_button = find_child("add_color_brush_button")
+@onready var brushes_top_bar = find_child("brushes_top_bar")
 
 func _ready():
 	var panel = get_child(0)
@@ -47,6 +48,7 @@ func _ready():
 	panel.size.x = get_viewport().size.x - global_position.x
 	panel.visibility_changed.connect(_on_panel_visibility_changed)
 	add_color_brush_button.pressed.connect(show_add_color_brush_popup)
+	brush_window_button.pressed.connect(show_brush_window_popup)
 	
 func fix_gui_input(event: InputEvent):
 	if event is InputEventMouseButton:
@@ -58,7 +60,7 @@ func _toggled(toggled_on):
  
 func clear_brushes():
 	#brush_container.clear()	
-	for child in brush_container.get_children():
+	for child in brush_container.get_children():		
 		brush_container.remove_child(child)
 		child.queue_free()
 	clear_property_element()
@@ -67,8 +69,8 @@ func clear_brushes():
 	for connection in brush_container.get_signal_connection_list("brush_selected"):
 		connection.signal.disconnect(connection.callable)	
 	#for connection in brush_container.get_signal_connection_list("item_clicked"):
-	#	connection.signal.disconnect(connection.callable)
-	add_color_brush_button.visible = false
+	#	connection.signal.disconnect(connection.callable)	
+	brushes_top_bar.visible = false
 	find_child("brush_settings_panel").visible = false
 	
 	
@@ -168,8 +170,7 @@ func init_color_brushes(terrain: MTerrain = null, layer_group_id=0):
 	brush_mode = &"paint"
 	if terrain == null:
 		return	
-							
-	add_color_brush_button.visible = true
+	brushes_top_bar.visible = true		
 	color_brush_layer = active_terrain.brush_layers[layer_group_id]						
 		
 	for i in color_brush_layer.layers.size():	
@@ -182,7 +183,7 @@ func init_color_brushes(terrain: MTerrain = null, layer_group_id=0):
 		var brush_item = preload("res://addons/m_terrain/gui/mtools_brush_item.tscn").instantiate()		
 		brush_container.add_child(brush_item)		
 		brush_item.set_color_brush(color_brush_layer, i)
-		brush_item.brush_selected.connect( brush_layer_selected.bind(brush_item.get_index(), color_brush_layer))
+		brush_item.brush_selected.connect( brush_layer_selected.bind(brush_item.get_index()))
 		brush_item.brush_edited.connect(update_color_brush)
 		brush_item.brush_removed.connect(remove_color_brush)
 	
@@ -191,9 +192,9 @@ func init_color_brushes(terrain: MTerrain = null, layer_group_id=0):
 	color_brush_name = color_brush_layer.brush_name
 	
 	if brush_container.get_child_count() != 0:
-		brush_layer_selected(0, layer_group_id)
+		brush_layer_selected(0)
 
-func brush_layer_selected(index, layer_group):			
+func brush_layer_selected(index):			
 	active_terrain.set_color_layer(index, color_layer_group_id,color_brush_name)
 	var brush_icon = brush_container.get_child(index).label.icon
 	if brush_icon and brush_icon != no_image:
@@ -372,7 +373,22 @@ func process_input(event):
 			else:
 				is_grass_add = not is_grass_add	
 #endregion
-
+func show_brush_window_popup():
+	var popup = preload("res://addons/m_terrain/gui/brush_palette.tscn").instantiate()
+	add_child(popup)	
+	visibility_changed.connect(popup.queue_free)
+	var brushes = brush_container.get_children().map(
+		func (a): 
+			var brush = a.label.duplicate()
+			brush.tooltip_text = brush.text
+			brush.custom_minimum_size = Vector2(64,64)				
+			brush.text = ""
+			brush.pressed.connect(func():
+				brush_layer_selected(brush.get_index())
+			)
+			return brush
+	)
+	popup.load_brushes(brushes)
 
 func _on_resized():	
 	var vbox = get_child(0)
@@ -382,8 +398,8 @@ func _on_resized():
 	var size_panel = find_child("brush_size_panel")
 	size_panel.custom_minimum_size.x = size.x
 	size_panel.size = size_panel.custom_minimum_size
-	var brushes_panel = find_child("brush_brushes_panel")
-	brushes_panel.custom_minimum_size.x = (owner.size.x - size_panel.size.x - settings.size.x - 12) *0.5
+	var brushes_panel = find_child("brush_brushes_panel")	
+	brushes_panel.custom_minimum_size.x = (owner.size.x - size_panel.size.x - (float(settings.visible) * settings.size.x) - 12) *0.5
 	brushes_panel.size = brushes_panel.custom_minimum_size
 	
 	vbox.size.x = settings.size.x + size_panel.size.x + brushes_panel.size.x * 1.01

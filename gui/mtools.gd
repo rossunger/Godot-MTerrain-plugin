@@ -715,3 +715,18 @@ func _on_walk_terrain_toggled(toggled_on):
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	else:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		
+		#To Do: wait for a fix to editor camera issues. For now, super hacky solution:
+		var e = InputEventKey.new()
+		e.keycode = KEY_F
+		e.pressed = true
+		var marker = Node3D.new()
+		EditorInterface.get_edited_scene_root().add_child(marker)
+		marker.owner = EditorInterface.get_edited_scene_root()
+		marker.position = editor_camera.position *2 - editor_camera.basis.z *30
+		var original_selection = EditorInterface.get_selection().get_selected_nodes()[0]
+		EditorInterface.get_selection().clear()
+		EditorInterface.get_selection().add_node(marker)
+		Input.parse_input_event(e)		
+		marker.queue_free()
+		EditorInterface.get_selection().add_node(original_selection)
